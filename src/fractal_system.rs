@@ -1,10 +1,12 @@
 use bevy::asset::AssetServer;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
+use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::{Extract, RenderApp, RenderStage};
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 /// Render a fractal using a compute shader.
 #[derive(Component, Clone, Reflect)]
@@ -19,7 +21,7 @@ pub struct ComputeFractalComponent {
 }
 
 /// Types of fractals which can be generated.
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Clone, Copy, PartialEq, Reflect)]
 #[repr(C)]
 pub enum FractalType {
     /// Julia set fractal.
@@ -98,32 +100,76 @@ impl FromWorld for ComputeFractalPipeline {
     }
 }
 
+struct ExtractedFractal {
+    entity: Entity,
+    fractal_type: FractalType,
+    iterations: usize,
+    output: Handle<Image>,
+}
+
 #[derive(Resource, Default)]
 struct ExtractedFractals {
-    fractals: Vec<ComputeFractalComponent>,
+    fractals: Vec<ExtractedFractal>,
 }
 
 /// Extract the [`ComputeFractalComponents`](ComputeFractalComponent) to the
 /// render world.
 fn extract_fractals(
     mut extracted_fractals: ResMut<ExtractedFractals>,
-    query: Extract<Query<(&ComputeFractalComponent, &ComputedVisibility)>>,
+    query: Extract<Query<(Entity, &ComputeFractalComponent, &ComputedVisibility)>>,
 ) {
     // Clear the extracted fractals from the last frame
     extracted_fractals.fractals.clear();
 
     // Find all visible fractals
-    for (fractal, visibility) in query.iter() {
+    for (entity, fractal, visibility) in query.iter() {
         // Fractals dont tend to change much, so we dont need to update
         // it whenever it is out of view.
         if !visibility.is_visible() {
             continue;
         }
 
-        extracted_fractals.fractals.push(fractal.clone());
+        extracted_fractals.fractals.push(ExtractedFractal {
+            entity,
+            fractal_type: fractal.fractal_type,
+            iterations: fractal.iterations,
+            output: fractal.output.clone_weak(),
+        });
     }
 }
 
 /// Queue the extracted [`ComputeFractalComponents`](ComputeFractalComponent)
 /// from the [`extract_fractals`] system in the render graph.
-fn queue_fractals(mut commands: Commands, extracted_fractals: Res<ExtractedFractals>) {}
+fn queue_fractals(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    gpu_images: Res<RenderAssets<Image>>,
+    pipeline: Res<ComputeFractalPipeline>,
+    extracted_fractals: Res<ExtractedFractals>,
+) {
+    let mut bind_groups = ComputeFractalBindGroups::default();
+
+    for fractal in extracted_fractals.fractals.iter() {
+        // Get a texture view of the fractal output image
+        let view = &gpu_images[&fractal.output];
+
+        // Create a compatible bind group with the texture view
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &pipeline.texture_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(&view.texture_view),
+            }],
+        });
+
+        bind_groups.values.insert(fractal.entity, bind_group);
+    }
+
+    commands.insert_resource(bind_groups);
+}
+
+#[derive(Default, Resource)]
+struct ComputeFractalBindGroups {
+    values: HashMap<Entity, BindGroup>,
+}
