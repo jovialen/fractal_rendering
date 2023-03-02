@@ -48,7 +48,6 @@ impl Plugin for ComputeFractalPlugin {
         render_app
             .init_resource::<ExtractedFractals>()
             .init_resource::<ComputeFractalPipeline>()
-            .init_resource::<SpecializedComputePipelines<ComputeFractalPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_fractals)
             .add_system_to_stage(RenderStage::Queue, queue_fractals);
     }
@@ -56,7 +55,7 @@ impl Plugin for ComputeFractalPlugin {
 
 #[derive(Resource)]
 struct ComputeFractalPipeline {
-    shader: Handle<Shader>,
+    julia_pipeline: CachedComputePipelineId,
     texture_bind_group_layout: BindGroupLayout,
 }
 
@@ -83,23 +82,18 @@ impl FromWorld for ComputeFractalPipeline {
 
         let shader = asset_server.load("shaders/fractal_system.wgsl");
 
-        Self {
-            shader,
-            texture_bind_group_layout,
-        }
-    }
-}
-
-impl SpecializedComputePipeline for ComputeFractalPipeline {
-    type Key = ();
-
-    fn specialize(&self, _key: Self::Key) -> ComputePipelineDescriptor {
-        ComputePipelineDescriptor {
+        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        let julia_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(Cow::from("julia_fractal_pipeline")),
-            layout: Some(vec![self.texture_bind_group_layout.clone()]),
-            shader: self.shader.clone(),
+            layout: Some(vec![texture_bind_group_layout.clone()]),
+            shader: shader.clone(),
             shader_defs: Vec::new(),
             entry_point: Cow::from("julia"),
+        });
+
+        Self {
+            julia_pipeline,
+            texture_bind_group_layout,
         }
     }
 }
