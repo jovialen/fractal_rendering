@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::window::{PresentMode, WindowDescriptor};
 
+/// The resolution of the output image for the fractal.
 const OUTPUT_RESOLUTION: UVec2 = UVec2 { x: 1280, y: 720 };
 
 fn main() {
@@ -31,11 +32,14 @@ fn main() {
         .run();
 }
 
+/// Prepare a camera for rendering.
 fn prepare_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
+/// Prepare a fractal for rendering.
 fn prepare_fractal(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    // Create the output image for the fractal
     let mut image = Image::new_fill(
         Extent3d {
             width: OUTPUT_RESOLUTION.x,
@@ -51,8 +55,10 @@ fn prepare_fractal(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
 
+    // Save the image as an asset and get a handle
     let image = images.add(image);
 
+    // Spawn a sprite to render the fractal
     commands.spawn(ComputeFractalBundle {
         compute_fractal: ComputeFractalComponent {
             fractal_type: FractalType::Julia(-0.45, 0.55),

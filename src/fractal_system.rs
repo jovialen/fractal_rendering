@@ -29,4 +29,5 @@ pub struct ComputeFractalBundle {
     pub sprite: SpriteBundle,
 }
 
+/// System to render a fractal on its output image.
 pub fn compute_fractal_system(mut _query: Query<&mut ComputeFractalComponent>) {}
