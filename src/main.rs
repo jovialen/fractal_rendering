@@ -5,9 +5,10 @@
 mod fractal_system;
 
 use fractal_system::{
-    compute_fractal_system, ComputeFractalBundle, ComputeFractalComponent, FractalType,
+    ComputeFractalBundle, ComputeFractalComponent, ComputeFractalPlugin, FractalType,
 };
 
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::window::{PresentMode, WindowDescriptor};
@@ -26,9 +27,11 @@ fn main() {
             },
             ..Default::default()
         }))
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(ComputeFractalPlugin)
         .add_startup_system(prepare_camera)
         .add_startup_system(prepare_fractal)
-        .add_system(compute_fractal_system)
         .run();
 }
 
