@@ -1,3 +1,5 @@
+//! Bevy fractal system with compute shaders
+
 use bevy::asset::AssetServer;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
@@ -31,6 +33,8 @@ pub enum FractalType {
     Julia(f64, f64),
 }
 
+/// Bundle with everything needed to create an entity with a compute fractal
+/// rendered to a sprite.
 #[derive(Bundle)]
 pub struct ComputeFractalBundle {
     pub compute_fractal: ComputeFractalComponent,
@@ -55,9 +59,12 @@ impl Plugin for ComputeFractalPlugin {
     }
 }
 
+/// Compute pipeline for all fractal generation.
 #[derive(Resource)]
 struct ComputeFractalPipeline {
+    /// Compute pipeline for the julia fractal.
     julia_pipeline: CachedComputePipelineId,
+    /// Common bind group for all pipelines.
     texture_bind_group_layout: BindGroupLayout,
 }
 
@@ -100,6 +107,7 @@ impl FromWorld for ComputeFractalPipeline {
     }
 }
 
+/// A fractal extracted from the logical ecs world to the render world.
 struct ExtractedFractal {
     entity: Entity,
     fractal_type: FractalType,
@@ -107,6 +115,7 @@ struct ExtractedFractal {
     output: Handle<Image>,
 }
 
+/// All fractals to be processed by the renderer.
 #[derive(Resource, Default)]
 struct ExtractedFractals {
     fractals: Vec<ExtractedFractal>,
@@ -169,6 +178,7 @@ fn queue_fractals(
     commands.insert_resource(bind_groups);
 }
 
+/// Bind groups for all extracted fractals.
 #[derive(Default, Resource)]
 struct ComputeFractalBindGroups {
     values: HashMap<Entity, BindGroup>,
